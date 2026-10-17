@@ -1,0 +1,6 @@
+services:
+  app:
+    environment:
+      BOOTSTRAP_MODE: "true"
+      WALLOS_SERVER_URL: http://localhost:8104
+    ports: ["127.0.0.1:8104:80"]

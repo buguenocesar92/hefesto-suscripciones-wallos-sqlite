@@ -1,0 +1,4 @@
+nombre,proveedor,monto,moneda,periodicidad,siguiente_vencimiento,categoria
+Servidor demo,Proveedor ficticio,15000,CLP,mensual,2026-11-15,Infraestructura
+Dominio demo,Proveedor ficticio,12000,CLP,anual,2027-01-15,Dominios
+Herramienta demo,Proveedor ficticio,10,USD,mensual,2026-11-20,Software

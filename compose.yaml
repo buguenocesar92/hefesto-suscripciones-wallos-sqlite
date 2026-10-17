@@ -1,0 +1,37 @@
+name: hefesto-suscripciones
+services:
+  app:
+    image: bellamy/wallos:5.8.3@sha256:0006879778f31a962a3873f7682514b92a3c7665dcbc4764fcc241ad968eaccd
+    # Preserve upstream dumb-init entrypoint and native process manager.
+    command: [sh, /opt/hefesto/start.sh]
+    restart: unless-stopped
+    stop_grace_period: 90s
+    environment:
+      TZ: America/Santiago
+      PUID: "82"
+      PGID: "82"
+      WALLOS_SERVER_URL: ${PUBLIC_URL:?Configurar URL}
+      INITIAL_SETUP_COMPLETE: ${INITIAL_SETUP_COMPLETE:-false}
+      BOOTSTRAP_MODE: "false"
+    expose: ["80"]
+    volumes:
+      - db:/var/www/html/db
+      - logos:/var/www/html/images/uploads/logos
+      - ./ops:/opt/hefesto:ro
+      - ./ops/nginx.conf:/etc/nginx/http.d/default.conf:ro
+  filetools:
+    image: alpine:3.22
+    profiles: [tools]
+    user: "0"
+    volumes: [db:/db, logos:/logos]
+  permissions:
+    image: alpine:3.22
+    profiles: [tools]
+    user: "0"
+    entrypoint: [sh, -ec, 'chown -R 82:82 /db /logos; chmod 755 /db /logos']
+    volumes: [db:/db, logos:/logos]
+volumes:
+  db:
+    name: ${VOLUME_PREFIX:-hefesto-suscripciones}-db
+  logos:
+    name: ${VOLUME_PREFIX:-hefesto-suscripciones}-logos

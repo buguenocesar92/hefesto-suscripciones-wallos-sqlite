@@ -1,0 +1,4 @@
+# Add only to a private restore rehearsal; blocks outbound internet.
+networks:
+  default:
+    internal: true
