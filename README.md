@@ -34,3 +34,28 @@ La app puede consultar servicios externos para tipos de cambio y actualizaciones
 `python3 scripts/check_backup.py /ruta/respaldo` comprueba hashes e integridad SQLite en una copia temporal sin Docker. Cifrar y guardar respaldo fuera del servidor; contiene información de gastos y posibles secretos. Restaurar siguiendo docs/RESTORE.md.
 
 Estado: validación estática y pruebas de scripts sobre SQLite sintético. No se ejecutó Docker, Wallos, correo ni restauración real. Antes de producción completar docs/ACCEPTANCE.md.
+
+## Despliegue en Coolify (MVP Hefesto)
+
+Coolify importa `compose.yaml` con build pack Docker Compose y pone TLS y
+dominio. El servicio `app` queda detrás de Traefik; nada publica puertos
+directos ni monta `docker.sock`. El arranque exige `INITIAL_SETUP_COMPLETE=true`,
+base con al menos un usuario y registro cerrado (lo verifica `ops/start.sh`).
+
+Variables de entorno que Coolify debe poblar antes del primer arranque:
+
+- `PUBLIC_URL`: URL HTTPS definitiva del servicio (por ejemplo,
+  `https://suscripciones.sudominio`). Es obligatoria y se inyecta en
+  `WALLOS_SERVER_URL`.
+- `INITIAL_SETUP_COMPLETE`: dejar en `false` durante la instalación privada;
+  cambiar a `true` solo después de cerrar el registro y crear las cuentas
+  necesarias.
+- `VOLUME_PREFIX`: prefijo que Coolify aplica a los volúmenes `db` y `logos`.
+  Cada instancia debe tener un prefijo único para no chocar con otros
+  despliegues del mismo kit. Tiene valor por defecto (`hefesto-suscripciones`)
+  para uso local.
+
+Para ensayo en servidor real, importar también `compose.bootstrap.yaml`
+durante la ventana privada y `compose.isolated.yaml` para bloquear salida a
+Internet durante restauraciones de prueba. Ambos se retiran antes de pasar a
+producción.

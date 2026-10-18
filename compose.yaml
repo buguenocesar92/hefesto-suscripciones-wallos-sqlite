@@ -1,4 +1,3 @@
-name: hefesto-suscripciones
 services:
   app:
     image: bellamy/wallos:5.8.3@sha256:0006879778f31a962a3873f7682514b92a3c7665dcbc4764fcc241ad968eaccd
