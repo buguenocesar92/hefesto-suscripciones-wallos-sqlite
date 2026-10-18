@@ -15,6 +15,14 @@
 # Uso: bash scripts/coolify-check.sh
 set -euo pipefail
 
+# Dependencias: jq, docker compose y el módulo yaml de Python3. Sin ellas el
+# chequeo no puede ejecutarse; avisamos y abortamos con código distinto de 0
+# en lugar de fallar más adelante con mensajes crípticos.
+command -v jq >/dev/null 2>&1 || { echo "FAIL: falta jq en PATH"; exit 1; }
+command -v docker >/dev/null 2>&1 || { echo "FAIL: falta docker en PATH"; exit 1; }
+docker compose version >/dev/null 2>&1 || { echo "FAIL: falta el plugin docker compose"; exit 1; }
+python3 -c 'import yaml' 2>/dev/null || { echo "FAIL: falta el módulo yaml de python3"; exit 1; }
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
@@ -23,8 +31,8 @@ cd "$REPO_ROOT"
 # propio contrato del plan los exime de las reglas estrictas.
 COMPOSE="$REPO_ROOT/compose.yaml"
 
-# .env sintético: vive bajo $TMPDIR (la sandbox lo exige) y se borra al salir.
-TMP_ENV="$(mktemp --tmpdir=/tmp/claude coolify-check.XXXXXX.env)"
+# .env sintético y efímero. mktemp usa $TMPDIR y se borra al salir.
+TMP_ENV="$(mktemp)"
 cleanup() { rm -f "$TMP_ENV"; }
 trap cleanup EXIT
 
@@ -61,7 +69,7 @@ fake_value() {
 # Devuelve un mensaje por línea, vacío si todo está bien.
 check_yaml_names() {
   python3 - "$1" <<'PY'
-import sys, yaml
+import sys, re, yaml
 path = sys.argv[1]
 with open(path) as f:
     data = yaml.safe_load(f) or {}
@@ -71,14 +79,22 @@ if isinstance(data, dict) and 'name' in data:
 for net_key, net_val in (data.get('networks') or {}).items():
     if isinstance(net_val, dict) and 'name' in net_val:
         problems.append(f"networks.{net_key}: tiene name: fijo ({net_val['name']!r})")
+# Volumen con `name:` permitido solo si es una referencia ${VAR:-default}
+# parametrizable; los nombres literales rompen la regla 2 del contrato
+# (Coolify asigna el nombre del proyecto y dos instancias compartirían
+# volumen si el default coincide).
+DEFAULT_RE = re.compile(r'\$\{[A-Za-z_][A-Za-z0-9_]*:?-[^}]+\}')
 for vol_key, vol_val in (data.get('volumes') or {}).items():
     if not isinstance(vol_val, dict):
         continue
     name = vol_val.get('name')
     if name is None:
         continue
-    if '${' not in str(name):
-        problems.append(f"volumes.{vol_key}: tiene name: literal ({name!r})")
+    sname = str(name)
+    if '${' not in sname:
+        problems.append(f"volumes.{vol_key}: tiene name: literal ({sname!r})")
+    elif not DEFAULT_RE.search(sname):
+        problems.append(f"volumes.{vol_key}: name sin valor por defecto ({sname!r})")
 print('\n'.join(problems))
 PY
 }
@@ -100,11 +116,11 @@ check_rendered_services() {
       (if (.network_mode // null) == "host" then [$svc, "network_mode host"] else empty end),
       (if (.pid // null) == "host" then [$svc, "pid host"] else empty end),
       (if (.ipc // null) == "host" then [$svc, "ipc host"] else empty end),
-      (if ((.security_opt // []) | index("unconfined")) != null then [$svc, "security_opt unconfined"] else empty end),
-      (if ((.volumes // []) | map(select(type == "object" and ((.source // "") | startswith("/")) and ((.source // "") | startswith($repo) | not))) | length) > 0 then [$svc, "bind fuera del repo"] else empty end),
+      (if ((.security_opt // []) | map(select(test("unconfined"))) | length) > 0 then [$svc, "security_opt unconfined"] else empty end),
+      (if ((.volumes // []) | map(select(type == "object" and ((.source // "") | startswith("/")) and ((.source // "") != $repo) and ((.source // "") | startswith($repo + "/") | not))) | length) > 0 then [$svc, "bind fuera del repo"] else empty end),
       (if ((.volumes // []) | map(select(type == "object" and ((.source // "") | test("docker\\.sock")))) | length) > 0 then [$svc, "monta docker.sock"] else empty end)
     ) | join(": ")
-  ' <<<"$cfg" 2>/dev/null || true
+  ' <<<"$cfg"
 }
 
 # --- Render ---------------------------------------------------------------
