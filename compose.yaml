@@ -1,4 +1,3 @@
-name: hefesto-suscripciones
 services:
   app:
     image: bellamy/wallos:5.8.3@sha256:0006879778f31a962a3873f7682514b92a3c7665dcbc4764fcc241ad968eaccd
@@ -19,6 +18,12 @@ services:
       - logos:/var/www/html/images/uploads/logos
       - ./ops:/opt/hefesto:ro
       - ./ops/nginx.conf:/etc/nginx/http.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
   filetools:
     image: alpine:3.22
     profiles: [tools]
