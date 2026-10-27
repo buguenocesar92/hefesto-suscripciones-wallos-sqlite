@@ -1,3 +1,22 @@
 .env
 backups/
 __pycache__/
+
+# --- Produccionizacion del contrato de respaldo (w3-kits-c) ---
+# Secretos runtime: nunca versionar
+.env
+.env.*
+!.env.example
+*.env
+*.env.*
+!.env.example
+# Respaldos locales (contienen datos y, a veces, material cifrado)
+backups/
+# Registro de auditoria de restauraciones (actividades de tratamiento)
+logs/
+# Claves privadas age generadas por error
+*.agekey
+*.agekey.txt
+# Python
+__pycache__/
+*.pyc
